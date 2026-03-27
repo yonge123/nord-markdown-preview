@@ -5,12 +5,14 @@
   "version": "1.0.0",
   "publisher": "bluebird1111",
   "icon": "sources/images/icon.png",
+  "repository": {
+    "type": "git",
+    "url": " https://github.com/yonge123/nord-markdown-preview"
+  },
   "engines": {
     "vscode": "^1.74.0"
   },
-  "categories": [
-    "Other"
-  ],
+  "categories": ["Visualization", "Other"],
   "keywords": [
     "markdown",
     "preview",
