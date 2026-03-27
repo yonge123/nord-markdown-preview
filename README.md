@@ -2,6 +2,7 @@
 
 A Markdown preview extension supporting YAML metadata, Mermaid diagrams, Math rendering, Tab Groups, Checkboxes, YouTube, Vimeo, and image scaling, with the ability to export as PDF or HTML.
 
+**Table of Contents**
 
 - [Nord Markdown Preview](#nord-markdown-preview)
   - [Features](#features)
@@ -26,6 +27,8 @@ A Markdown preview extension supporting YAML metadata, Mermaid diagrams, Math re
   - [Usage](#usage)
   - [Installation](#installation)
 
+
+![](sources/images/image_nord_markdown_preview_sample.png)
 
 ## Features
 
@@ -69,8 +72,8 @@ A Maximize button is available in the top-right corner of the embedded video.
 
 ```
 <iframe width="650" height="450" src="https://www.youtube.com/embed/YE7VzlLtp-4" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowMaximize></iframe>
-
 ```
+
 
 ![alt text](sources/images/image_youtube.png)
 
@@ -79,9 +82,9 @@ A Maximize button is available in the top-right corner of the embedded video.
 A Maximize button is available in the top-right corner of the embedded video.
 
 ```
-<iframe title="Using the extract deltas plugin in maya" src="https://player.vimeo.com/video/23881956?dnt=1&amp;app_id=122963" width="850" height="500" frameborder="0" allow="autoplay; Maximize" allowMaximize></iframe>
-
+<iframe title="vimeo-player" src="https://player.vimeo.com/video/1084537?h=b1b3ab5aa2" width="640" height="360" frameborder="0" referrerpolicy="strict-origin-when-cross-origin" allow="autoplay; fullscreen; picture-in-picture; clipboard-write; encrypted-media; web-share"   allowfullscreen></iframe>
 ```
+
 ![alt text](sources/images/image_vimeo.png)
 
 
@@ -220,10 +223,9 @@ Alternating row stripes and hover highlight included.
     * [ ] item B
         + [x] item a
         + [ ] item b
-- [ ] item 2
 ```
 
-![alt text](sources/images/task_list_checkbox.png)
+![alt text](sources/images/image_task_list_checkbox.png)
 
 
 Checked items are rendered with a strikethrough in Nord cyan.
@@ -234,9 +236,9 @@ Checked items are rendered with a strikethrough in Nord cyan.
 Standard syntax plus Kramdown-style attribute blocks for resizing:
 
 ```markdown
-![picture](path/to/image.png)
-![picture](path/to/image.png){: style="height:100px;width:100px"}
-<img src="path/to/icon.svg" width="30" height="30">
+![picture](sources/images/icon.png)
+![picture](sources/images/icon.png){: style="height:100px;width:100px"}
+<img src="sources/images/icon.png" width="30" height="30">
 ```
 
 ![alt text](sources/images/image_scale.png)
