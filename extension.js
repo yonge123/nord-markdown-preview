@@ -797,7 +797,7 @@ function getLocalRoots(extUri, docPath) {
 // ─────────────────────────────────────────────────────────────────────────────
 //  HTML builder
 // ─────────────────────────────────────────────────────────────────────────────
-function buildHtml({ body, webview, extUri, filename = '' }) {
+function buildHtml({ body, webview, extUri, filename = '', savedTheme = 'dark' }) {
   const cssUri = webview.asWebviewUri(vscode.Uri.joinPath(extUri, 'markdown.css'));
   const csp = [
     `default-src 'none'`,
@@ -1190,7 +1190,7 @@ function buildHtml({ body, webview, extUri, filename = '' }) {
     }
   </style>
 </head>
-<body>
+<body class="${savedTheme === 'light' ? 'nm-light' : ''}">
 <div class="nm-toolbar-hover-zone"></div>
 <div class="nm-toolbar">
   <div class="nm-toolbar-nav">
@@ -1373,14 +1373,19 @@ ${body}
     const btn  = document.getElementById('btnThemeToggle');
     const body = document.body;
 
-    const saved = (vscode.getState() || {}).theme;
-    if (saved === 'light') { body.classList.add('nm-light'); btn.innerHTML = moonSvg; applyScrollbarStyle(true); }
-    else { btn.innerHTML = sunSvg; }
+    // Initialise icon from server-side class (set via globalState)
+    const isInitLight = body.classList.contains('nm-light');
+    btn.innerHTML = isInitLight ? moonSvg : sunSvg;
+    if (isInitLight) applyScrollbarStyle(true);
+    vscode.setState({ ...vscode.getState(), theme: isInitLight ? 'light' : 'dark' });
+
     btn.addEventListener('click', () => {
       const isLight = body.classList.toggle('nm-light');
       btn.innerHTML = isLight ? moonSvg : sunSvg;
       applyScrollbarStyle(isLight);
-      vscode.setState({ ...vscode.getState(), theme: isLight ? 'light' : 'dark' });
+      const theme = isLight ? 'light' : 'dark';
+      vscode.setState({ ...vscode.getState(), theme });
+      vscode.postMessage({ type: 'themeChanged', theme });
     });
   })();
 
@@ -2061,10 +2066,11 @@ function openSplitPreview(context) {
   );
 
   previewPanel.webview.html = buildHtml({
-    body:     renderDoc(doc.getText(), fsPath, previewPanel.webview),
-    webview:  previewPanel.webview,
-    extUri:   context.extensionUri,
-    filename: path.basename(fsPath),
+    body:       renderDoc(doc.getText(), fsPath, previewPanel.webview),
+    webview:    previewPanel.webview,
+    extUri:     context.extensionUri,
+    filename:   path.basename(fsPath),
+    savedTheme: context.globalState.get('nordMarkdownTheme', 'dark'),
   });
 
   previewPanel.webview.onDidReceiveMessage(msg => {
@@ -2126,6 +2132,8 @@ function openSplitPreview(context) {
         vscode.TextEditorRevealType.AtTop
       );
       setTimeout(() => { scrollLock = false; }, 150);
+    } else if (msg.type === 'themeChanged') {
+      context.globalState.update('nordMarkdownTheme', msg.theme);
     } else if (msg.type === 'exportHtml' || msg.type === 'exportPdf') {
       const fs  = require('fs');
       const isPdf = msg.type === 'exportPdf';
