@@ -1,0 +1,86 @@
+{
+  "name": "nord-markdown-preview",
+  "displayName": "Nord Markdown Preview",
+  "description": "A Markdown preview extension supporting YAML metadata, Mermaid diagrams, Math rendering, Tab Groups, Checkboxes, YouTube, Vimeo, and image scaling, with the ability to export as PDF or HTML.",
+  "version": "1.0.0",
+  "publisher": "bluebird1111",
+  "icon": "sources/images/icon.png",
+  "engines": {
+    "vscode": "^1.74.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "markdown",
+    "preview",
+    "mkdocs",
+    "nord",
+    "table",
+    "checkbox",
+    "image",
+    "math",
+    "mermaid",
+    "youtube",
+    "vimeo",
+    "tab",
+    "admonitions",
+    "export",
+    "pdf",
+    "html"
+  ],
+  "activationEvents": [
+    "onLanguage:markdown"
+  ],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "nordMarkdown.openPreview",
+        "title": "Nord Markdown: Open Split Preview",
+        "icon": {
+          "light": "sources/svgs/sidebar-icon.svg",
+          "dark": "sources/svgs/sidebar-icon.svg"
+        }
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "nordMarkdown.openPreview",
+          "when": "editorLangId == markdown",
+          "group": "navigation"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "nordMarkdown.openPreview",
+          "when": "editorLangId == markdown",
+          "group": "navigation"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "nordMarkdown.openPreview",
+          "when": "resourceExtname == .md",
+          "group": "navigation"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "nordMarkdown.openPreview",
+        "key": "ctrl+shift+v",
+        "mac": "cmd+shift+v",
+        "when": "editorLangId == markdown"
+      }
+    ]
+  },
+  "dependencies": {
+    "markdown-it": "^14.1.0",
+    "markdown-it-attrs": "^4.1.6"
+  },
+  "devDependencies": {
+    "@vscode/vsce": "^3.0.0"
+  }
+}
