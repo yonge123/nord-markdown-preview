@@ -2,7 +2,7 @@
   "name": "nord-markdown-preview",
   "displayName": "Nord Markdown Preview",
   "description": "A Markdown preview extension supporting YAML metadata, Mermaid diagrams, Math rendering, Tab Groups, Checkboxes, Admonitions, Vimeo, and image scaling, with the ability to export as PDF or HTML.",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "publisher": "bluebird1111",
   "icon": "sources/images/icon.png",
   "repository": {
