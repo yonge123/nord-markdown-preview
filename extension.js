@@ -531,7 +531,8 @@ function rewriteLocalImages(html, docPath, webview) {
   function rewriteSrc(match, pre, q, src) {
     if (/^(?:https?|data|vscode-resource|vscode-webview-resource):/.test(src)) return match;
     try {
-      const abs = path.resolve(docDir, src);
+      const decoded = decodeURIComponent(src);
+      const abs = path.resolve(docDir, decoded);
       const uri = webview.asWebviewUri(vscode.Uri.file(abs));
       return `${pre}${q}${uri.toString()}${q}`;
     } catch { return match; }
@@ -797,7 +798,7 @@ function getLocalRoots(extUri, docPath) {
 // ─────────────────────────────────────────────────────────────────────────────
 //  HTML builder
 // ─────────────────────────────────────────────────────────────────────────────
-function buildHtml({ body, webview, extUri, filename = '', savedTheme = 'dark' }) {
+function buildHtml({ body, webview, extUri, filename = '', savedTheme = 'dark', savedColors = null }) {
   const cssUri = webview.asWebviewUri(vscode.Uri.joinPath(extUri, 'markdown.css'));
   const csp = [
     `default-src 'none'`,
@@ -822,7 +823,7 @@ function buildHtml({ body, webview, extUri, filename = '', savedTheme = 'dark' }
     *, *::before, *::after { box-sizing: border-box; }
     html, body {
       margin: 0; padding: 0;
-      background: #1e2128; color: #d8dee9;
+      background: #1e2128; color: #a8cbaf;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
       font-size: 15px; line-height: 1.7; height: 100%;
     }
@@ -848,9 +849,64 @@ function buildHtml({ body, webview, extUri, filename = '', savedTheme = 'dark' }
     .nm-btn:disabled { opacity: .3; cursor: default; }
     .nm-btn:disabled:hover { background: transparent; }
     .nm-filename { font-size: 12px; color: #81a1c1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; }
-    .nm-toolbar-actions { display: flex; gap: 2px; }
+    .nm-toolbar-actions { display: flex; gap: 2px; align-items: center; }
+    .nm-zoom-level {
+      font-size: 11px; color: #81a1c1; min-width: 36px; text-align: center;
+      cursor: pointer; user-select: none; line-height: 30px;
+    }
+    .nm-zoom-level:hover { color: #88c0d0; }
+    /* ── Settings modal ────────────────────────────────────── */
+    .nm-settings-overlay {
+      display: none; position: fixed; inset: 0; z-index: 9999;
+      background: rgba(0,0,0,.5); align-items: center; justify-content: center;
+    }
+    .nm-settings-overlay.open { display: flex; }
+    .nm-settings-panel {
+      background: #2e3440; border: 1px solid #3b4252; border-radius: 10px;
+      padding: 24px 28px; min-width: 380px; max-width: 460px; width: 90%;
+      box-shadow: 0 8px 32px rgba(0,0,0,.5); color: #d8dee9;
+      max-height: 80vh; overflow-y: auto;
+    }
+    .nm-settings-panel h3 { margin: 0 0 16px; font-size: 15px; color: #88c0d0; }
+    .nm-settings-section { margin-bottom: 18px; }
+    .nm-settings-section h4 {
+      margin: 0 0 10px; font-size: 13px; color: #81a1c1; text-transform: uppercase;
+      letter-spacing: .5px; border-bottom: 1px solid #3b4252; padding-bottom: 6px;
+    }
+    .nm-color-row {
+      display: flex; align-items: center; justify-content: space-between;
+      margin: 6px 0; font-size: 13px;
+    }
+    .nm-color-row label { flex: 1; color: #d8dee9; }
+    .nm-color-row input[type="color"] {
+      width: 36px; height: 26px; border: 1px solid #4c566a; border-radius: 4px;
+      background: transparent; cursor: pointer; padding: 1px;
+    }
+    .nm-settings-btns {
+      display: flex; gap: 8px; justify-content: flex-end; margin-top: 16px;
+      border-top: 1px solid #3b4252; padding-top: 14px;
+    }
+    .nm-settings-btns button {
+      border: none; border-radius: 6px; padding: 6px 16px; font-size: 12px;
+      cursor: pointer; font-family: inherit;
+    }
+    .nm-sbtn-reset { background: #3b4252; color: #d8dee9; }
+    .nm-sbtn-reset:hover { background: #434c5e; }
+    .nm-sbtn-close { background: #5e81ac; color: #eceff4; }
+    .nm-sbtn-close:hover { background: #81a1c1; }
+    body.nm-light .nm-settings-panel {
+      background: #f0f2f8; border-color: #c8cdd8; color: #2e3440;
+      box-shadow: 0 8px 32px rgba(0,0,0,.15);
+    }
+    body.nm-light .nm-settings-panel h3 { color: #5e81ac; }
+    body.nm-light .nm-settings-section h4 { color: #4c6a9c; border-bottom-color: #c8cdd8; }
+    body.nm-light .nm-color-row label { color: #2e3440; }
+    body.nm-light .nm-color-row input[type="color"] { border-color: #b0b8cc; }
+    body.nm-light .nm-settings-btns { border-top-color: #c8cdd8; }
+    body.nm-light .nm-sbtn-reset { background: #dde2ee; color: #2e3440; }
+    body.nm-light .nm-sbtn-reset:hover { background: #c8cdd8; }
     .nm-btn {
-      background: transparent; border: none; color: #d8dee9;
+      background: transparent; border: none; color: #a8cbaf;
       border-radius: 6px; padding: 0; width: 30px; height: 30px; cursor: pointer;
       display: inline-flex; align-items: center; justify-content: center;
       transition: background .15s;
@@ -869,7 +925,7 @@ function buildHtml({ body, webview, extUri, filename = '', savedTheme = 'dark' }
     .nm-export-menu.open { display: block; }
     .nm-export-menu button {
       display: flex; align-items: center; gap: 8px; width: 100%;
-      background: transparent; border: none; color: #d8dee9;
+      background: transparent; border: none; color: #a8cbaf;
       padding: 6px 14px; font-size: 12px; cursor: pointer; white-space: nowrap;
     }
     .nm-export-menu button:hover { background: rgba(255,255,255,.08); }
@@ -942,7 +998,7 @@ function buildHtml({ body, webview, extUri, filename = '', savedTheme = 'dark' }
       transition: color .15s, border-color .15s;
       white-space: nowrap;
     }
-    .tab-btn:hover { color: #d8dee9; }
+    .tab-btn:hover { color: #a8cbaf; }
     .tab-btn.active {
       color: #88c0d0;
       border-bottom-color: #88c0d0;
@@ -959,7 +1015,7 @@ function buildHtml({ body, webview, extUri, filename = '', savedTheme = 'dark' }
       padding: 10px 16px; margin-bottom: 28px; font-size: 13px;
     }
     .fm-table { border-collapse: collapse; }
-    .fm-table td { border: none; padding: 2px 20px 2px 0; color: #d8dee9; vertical-align: top; }
+    .fm-table td { border: none; padding: 2px 20px 2px 0; color: #a8cbaf; vertical-align: top; }
     .fm-key { color: #81a1c1; font-weight: 600; white-space: nowrap; }
     .fm-pills { padding-top: 3px; }
     .fm-pill {
@@ -1131,6 +1187,8 @@ function buildHtml({ body, webview, extUri, filename = '', savedTheme = 'dark' }
     body.nm-light .nm-btn:hover { background: rgba(0,0,0,.08) !important; }
     body.nm-light .nm-btn-pin { color: #9aa5b8 !important; }
     body.nm-light .nm-btn-pin.pinned { color: #5e81ac !important; }
+    body.nm-light .nm-zoom-level { color: #4c566a !important; }
+    body.nm-light .nm-zoom-level:hover { color: #5e81ac !important; }
     body.nm-light .nm-filename { color: #4c6a9c !important; }
     html:has(body.nm-light)::-webkit-scrollbar-track,
     body.nm-light::-webkit-scrollbar-track,
@@ -1199,9 +1257,13 @@ function buildHtml({ body, webview, extUri, filename = '', savedTheme = 'dark' }
   </div>
   <span class="nm-filename">${escHtml(filename)}</span>
   <div class="nm-toolbar-actions">
+    <button class="nm-btn" id="btnZoomOut" title="Zoom out"><svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
+    <span class="nm-zoom-level" id="zoomLevel" title="Reset zoom">100%</span>
+    <button class="nm-btn" id="btnZoomIn" title="Zoom in"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></button>
     <button class="nm-btn" id="btnScrollTop"    title="Scroll to top"><svg viewBox="0 0 24 24"><path d="M18 15l-6-6-6 6"/></svg></button>
     <button class="nm-btn" id="btnScrollBottom" title="Scroll to bottom"><svg viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg></button>
     <button class="nm-btn nm-btn-theme" id="btnThemeToggle" title="Toggle light/dark theme"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg></button>
+    <button class="nm-btn" id="btnSettings" title="Color settings"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg></button>
     <button class="nm-btn nm-btn-pin" id="btnPin" title="Pin toolbar"><svg viewBox="0 0 24 24"><path d="M9 4v6l-2 4v2h10v-2l-2-4V4"/><line x1="12" y1="16" x2="12" y2="22"/><line x1="8" y1="4" x2="16" y2="4"/></svg></button>
     <div class="nm-export-wrap">
       <button class="nm-btn" id="btnExport" title="Export"><svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg></button>
@@ -1209,6 +1271,37 @@ function buildHtml({ body, webview, extUri, filename = '', savedTheme = 'dark' }
         <button id="btnExportPdf"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>Export as PDF</button>
         <button id="btnExportHtml"><svg viewBox="0 0 24 24"><polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/></svg>Export as HTML</button>
       </div>
+    </div>
+  </div>
+</div>
+<div class="nm-settings-overlay" id="settingsOverlay">
+  <div class="nm-settings-panel">
+    <h3>Color Settings</h3>
+    <div class="nm-settings-section">
+      <h4>Dark Mode</h4>
+      <div class="nm-color-row"><label>Background</label><input type="color" id="clrDarkBg" data-key="darkBg"></div>
+      <div class="nm-color-row"><label>Font Color</label><input type="color" id="clrDarkFont" data-key="darkFont"></div>
+      <div class="nm-color-row"><label>H1 Color</label><input type="color" id="clrDarkH1" data-key="darkH1"></div>
+      <div class="nm-color-row"><label>H2 Color</label><input type="color" id="clrDarkH2" data-key="darkH2"></div>
+      <div class="nm-color-row"><label>H3 Color</label><input type="color" id="clrDarkH3" data-key="darkH3"></div>
+      <div class="nm-color-row"><label>H4 Color</label><input type="color" id="clrDarkH4" data-key="darkH4"></div>
+      <div class="nm-color-row"><label>H5 Color</label><input type="color" id="clrDarkH5" data-key="darkH5"></div>
+      <div class="nm-color-row"><label>H6 Color</label><input type="color" id="clrDarkH6" data-key="darkH6"></div>
+    </div>
+    <div class="nm-settings-section">
+      <h4>Light Mode</h4>
+      <div class="nm-color-row"><label>Background</label><input type="color" id="clrLightBg" data-key="lightBg"></div>
+      <div class="nm-color-row"><label>Font Color</label><input type="color" id="clrLightFont" data-key="lightFont"></div>
+      <div class="nm-color-row"><label>H1 Color</label><input type="color" id="clrLightH1" data-key="lightH1"></div>
+      <div class="nm-color-row"><label>H2 Color</label><input type="color" id="clrLightH2" data-key="lightH2"></div>
+      <div class="nm-color-row"><label>H3 Color</label><input type="color" id="clrLightH3" data-key="lightH3"></div>
+      <div class="nm-color-row"><label>H4 Color</label><input type="color" id="clrLightH4" data-key="lightH4"></div>
+      <div class="nm-color-row"><label>H5 Color</label><input type="color" id="clrLightH5" data-key="lightH5"></div>
+      <div class="nm-color-row"><label>H6 Color</label><input type="color" id="clrLightH6" data-key="lightH6"></div>
+    </div>
+    <div class="nm-settings-btns">
+      <button class="nm-sbtn-reset" id="btnColorReset">Reset to Default</button>
+      <button class="nm-sbtn-close" id="btnSettingsClose">Close</button>
     </div>
   </div>
 </div>
@@ -1318,6 +1411,15 @@ ${body}
 (function() {
   const vscode = acquireVsCodeApi();
 
+  // Seed webview state with server-saved colors (first load only)
+  (function() {
+    var s = vscode.getState();
+    if (!s || !s.colors) {
+      var sc = ${savedColors ? JSON.stringify(savedColors) : 'null'};
+      if (sc) vscode.setState(Object.assign({}, s || {}, { colors: sc }));
+    }
+  })();
+
   // Render all .math-inline and .math-block elements with KaTeX
   function renderMath(root) {
     if (!window.katex) return;
@@ -1335,10 +1437,37 @@ ${body}
     });
   }
 
+  // Copy button for code blocks
+  function addCopyButtons() {
+    document.querySelectorAll('pre').forEach(pre => {
+      if (pre.querySelector('.nm-copy-btn')) return;
+      const btn = document.createElement('button');
+      btn.className = 'nm-copy-btn';
+      btn.title = 'Copy';
+      btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+      btn.addEventListener('click', () => {
+        const code = pre.querySelector('code');
+        const text = code ? code.innerText : pre.innerText;
+        navigator.clipboard.writeText(text).then(() => {
+          btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+          btn.title = 'Copied!';
+          btn.classList.add('nm-copied');
+          setTimeout(() => {
+            btn.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+            btn.title = 'Copy';
+            btn.classList.remove('nm-copied');
+          }, 1500);
+        }).catch(() => {});
+      });
+      pre.appendChild(btn);
+    });
+  }
+
   // Highlight all code blocks on initial load
   if (window.hljs) {
     document.querySelectorAll('pre code').forEach(el => hljs.highlightElement(el));
   }
+  addCopyButtons();
   renderMath();
 
   document.getElementById('btnNavPrev')
@@ -1350,6 +1479,30 @@ ${body}
     .addEventListener('click', () => window.scrollTo({ top: 0, behavior: 'smooth' }));
   document.getElementById('btnScrollBottom')
     .addEventListener('click', () => window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' }));
+
+  // ── Zoom ───────────────────────────────────────────────────────────────────
+  (function() {
+    const ZOOM_STEP = 10, ZOOM_MIN = 50, ZOOM_MAX = 200;
+    const body      = document.querySelector('.vscode-body');
+    const label     = document.getElementById('zoomLevel');
+    const saved     = vscode.getState();
+    var   zoom      = (saved && saved.zoom) || 100;
+
+    function applyZoom() {
+      body.style.zoom = (zoom / 100).toString();
+      label.textContent = zoom + '%';
+      vscode.setState({ ...vscode.getState(), zoom });
+    }
+    applyZoom();
+
+    document.getElementById('btnZoomIn').addEventListener('click', () => {
+      zoom = Math.min(zoom + ZOOM_STEP, ZOOM_MAX); applyZoom();
+    });
+    document.getElementById('btnZoomOut').addEventListener('click', () => {
+      zoom = Math.max(zoom - ZOOM_STEP, ZOOM_MIN); applyZoom();
+    });
+    label.addEventListener('click', () => { zoom = 100; applyZoom(); });
+  })();
 
   // ── Theme toggle ──────────────────────────────────────────────────────────
   function applyScrollbarStyle(isLight) {
@@ -1449,17 +1602,127 @@ ${body}
 
     exportMenu.addEventListener('click', (e) => e.stopPropagation());
 
+    // Remove UI-only elements from the DOM before capturing HTML, then restore them
+    function captureCleanHtml(selectors) {
+      var removed = [];
+      selectors.forEach(function(sel) {
+        var el = document.querySelector(sel);
+        if (el && el.parentNode) {
+          removed.push({ el: el, parent: el.parentNode, next: el.nextSibling });
+          el.parentNode.removeChild(el);
+        }
+      });
+      var html = document.documentElement.outerHTML;
+      removed.reverse().forEach(function(r) {
+        r.parent.insertBefore(r.el, r.next);
+      });
+      return html;
+    }
+
+    var uiSelectors = ['.nm-toolbar', '.nm-toolbar-hover-zone', '.nm-settings-overlay', '#nm-scrollbar-override'];
+
     btnPdf.addEventListener('click', () => {
       exportMenu.classList.remove('open');
-      // Collect full styled HTML for PDF generation on the extension side
-      const html = document.documentElement.outerHTML;
-      vscode.postMessage({ type: 'exportPdf', html });
+      // PDF: also strip custom color overrides — use default print styles
+      vscode.postMessage({ type: 'exportPdf', html: captureCleanHtml(uiSelectors.concat('#nm-color-overrides')) });
     });
 
     btnHtml.addEventListener('click', () => {
       exportMenu.classList.remove('open');
-      const html = document.documentElement.outerHTML;
-      vscode.postMessage({ type: 'exportHtml', html });
+      // HTML: keep custom color overrides
+      vscode.postMessage({ type: 'exportHtml', html: captureCleanHtml(uiSelectors) });
+    });
+  })();
+
+  // ── Color settings modal ──────────────────────────────────────────────────
+  (function() {
+    const DEFAULTS = {
+      darkBg: '#1e2128', darkFont: '#a8cbaf',
+      darkH1: '#BF616A', darkH2: '#cfb682', darkH3: '#A3BE8C',
+      darkH4: '#B48EAD', darkH5: '#8FBCBB', darkH6: '#88C0D0',
+      lightBg: '#ffffff', lightFont: '#2e3440',
+      lightH1: '#4d4d4d', lightH2: '#4d4d4d', lightH3: '#4d4d4d',
+      lightH4: '#4d4d4d', lightH5: '#4d4d4d', lightH6: '#4d4d4d',
+    };
+    const KEYS = Object.keys(DEFAULTS);
+    const overlay = document.getElementById('settingsOverlay');
+
+    // Load saved colors from webview state or from server-injected data
+    var colors = Object.assign({}, DEFAULTS);
+    const saved = vscode.getState();
+    if (saved && saved.colors) Object.assign(colors, saved.colors);
+
+    function applyColors() {
+      // Inject / update a <style> element with CSS custom-property overrides
+      var el = document.getElementById('nm-color-overrides');
+      if (!el) {
+        el = document.createElement('style');
+        el.id = 'nm-color-overrides';
+        document.head.appendChild(el);
+      }
+      el.textContent =
+        'html, body { background: ' + colors.darkBg + ' !important; color: ' + colors.darkFont + ' !important; }' +
+        '.vscode-body h1 { color: ' + colors.darkH1 + ' !important; }' +
+        '.vscode-body h2 { color: ' + colors.darkH2 + ' !important; }' +
+        '.vscode-body h3 { color: ' + colors.darkH3 + ' !important; }' +
+        '.vscode-body h4 { color: ' + colors.darkH4 + ' !important; }' +
+        '.vscode-body h5 { color: ' + colors.darkH5 + ' !important; }' +
+        '.vscode-body h6 { color: ' + colors.darkH6 + ' !important; }' +
+        'body.nm-light, html:has(body.nm-light) { background: ' + colors.lightBg + ' !important; color: ' + colors.lightFont + ' !important; }' +
+        'body.nm-light .vscode-body { background-color: ' + colors.lightBg + ' !important; color: ' + colors.lightFont + ' !important; }' +
+        'body.nm-light .vscode-body h1 { color: ' + colors.lightH1 + ' !important; }' +
+        'body.nm-light .vscode-body h2 { color: ' + colors.lightH2 + ' !important; }' +
+        'body.nm-light .vscode-body h3 { color: ' + colors.lightH3 + ' !important; }' +
+        'body.nm-light .vscode-body h4 { color: ' + colors.lightH4 + ' !important; }' +
+        'body.nm-light .vscode-body h5 { color: ' + colors.lightH5 + ' !important; }' +
+        'body.nm-light .vscode-body h6 { color: ' + colors.lightH6 + ' !important; }';
+    }
+
+    function syncInputs() {
+      KEYS.forEach(function(k) {
+        var inp = document.querySelector('#settingsOverlay input[data-key="' + k + '"]');
+        if (inp) inp.value = colors[k];
+      });
+    }
+
+    function save() {
+      vscode.setState(Object.assign({}, vscode.getState(), { colors: colors }));
+      vscode.postMessage({ type: 'colorsChanged', colors: colors });
+    }
+
+    // Apply on load
+    applyColors();
+
+    // Open
+    document.getElementById('btnSettings').addEventListener('click', function(e) {
+      e.stopPropagation();
+      syncInputs();
+      overlay.classList.add('open');
+    });
+
+    // Live-update on color input change
+    overlay.addEventListener('input', function(e) {
+      if (e.target.type === 'color' && e.target.dataset.key) {
+        colors[e.target.dataset.key] = e.target.value;
+        applyColors();
+        save();
+      }
+    });
+
+    // Reset
+    document.getElementById('btnColorReset').addEventListener('click', function() {
+      Object.assign(colors, DEFAULTS);
+      applyColors();
+      syncInputs();
+      save();
+    });
+
+    // Close
+    document.getElementById('btnSettingsClose').addEventListener('click', function() {
+      overlay.classList.remove('open');
+    });
+    overlay.addEventListener('click', function(e) {
+      if (e.target === overlay) overlay.classList.remove('open');
     });
   })();
 
@@ -1770,6 +2033,7 @@ ${body}
       document.querySelectorAll('pre code').forEach(el => {
         if (window.hljs) window.hljs.highlightElement(el);
       });
+      addCopyButtons();
       renderMath();
       initTabs();
       wrapImages();
@@ -2071,6 +2335,7 @@ function openSplitPreview(context) {
     extUri:     context.extensionUri,
     filename:   path.basename(fsPath),
     savedTheme: context.globalState.get('nordMarkdownTheme', 'dark'),
+    savedColors: context.globalState.get('nordMarkdownColors', null),
   });
 
   previewPanel.webview.onDidReceiveMessage(msg => {
@@ -2134,6 +2399,8 @@ function openSplitPreview(context) {
       setTimeout(() => { scrollLock = false; }, 150);
     } else if (msg.type === 'themeChanged') {
       context.globalState.update('nordMarkdownTheme', msg.theme);
+    } else if (msg.type === 'colorsChanged') {
+      context.globalState.update('nordMarkdownColors', msg.colors);
     } else if (msg.type === 'exportHtml' || msg.type === 'exportPdf') {
       const fs  = require('fs');
       const isPdf = msg.type === 'exportPdf';
@@ -2148,9 +2415,15 @@ function openSplitPreview(context) {
 
       // Build a clean standalone HTML document from the webview content
       let html = msg.html || '';
-      // Remove the toolbar and hover-zone from the exported HTML.
+      // Remove the toolbar, hover-zone, and settings overlay from the exported HTML.
       // Everything between <body> and <div class="vscode-body"> is toolbar UI.
       html = html.replace(/<body[^>]*>[\s\S]*?<div class="vscode-body">/g, '<body>\n<div class="vscode-body">');
+      // Fallback: explicitly remove toolbar elements if the above regex didn't catch them
+      html = html.replace(/<div class="nm-toolbar-hover-zone"><\/div>/gi, '');
+      html = html.replace(/<div class="nm-toolbar">[\s\S]*?<\/div>\s*<\/div>\s*<\/div>/gi, '');
+      html = html.replace(/<div class="nm-settings-overlay"[^>]*>[\s\S]*?<\/div>\s*<\/div>/gi, '');
+      // Remove dynamically injected scrollbar-override styles
+      html = html.replace(/<style[^>]*nm-scrollbar-override[^>]*>[\s\S]*?<\/style>/gi, '');
       // Remove webview-only scripts (everything inside <script> tags)
       html = html.replace(/<script[\s\S]*?<\/script>/gi, '');
       // Remove video maximize buttons
@@ -2169,6 +2442,9 @@ function openSplitPreview(context) {
         // HTML: inline markdown.css for full theme support
         html = html.replace(/<link rel="stylesheet" href="[^"]*markdown\.css[^"]*">/g,
           cssContent ? `<style>\n${cssContent}\n</style>` : '');
+        // Hide toolbar/settings in exported HTML (in case any remnants survived)
+        html = html.replace('</head>',
+          '<style>.nm-toolbar,.nm-toolbar-hover-zone,.nm-settings-overlay{display:none!important}</style>\n</head>');
       }
       // Restore clickable links: external URLs (shared by both formats)
       html = html.replace(/<a\b([^>]*)\bdata-md-url="([^"]*)"([^>]*)>/gi,
@@ -2245,6 +2521,7 @@ function openSplitPreview(context) {
         // Inject print-friendly styles (light bg, no front-matter, clean layout)
         const printStyles = `<style>
   @page { margin: 15mm 10mm; }
+  .nm-toolbar, .nm-toolbar-hover-zone, .nm-settings-overlay { display: none !important; }
   html, body, body.nm-light { background: #ffffff !important; color: #000000 !important; }
   .fm-block { display: none !important; }
   body.nm-light .vscode-body { max-width: none !important; padding: 10px 0 !important; background: #ffffff !important; color: #000000 !important; }
@@ -2322,7 +2599,7 @@ if (els.length) await mermaid.run({ nodes: Array.from(els) });
   .nm-theme-toggle {
     position: fixed; top: 16px; right: 16px; z-index: 1000;
     width: 36px; height: 36px; border-radius: 50%; border: 1px solid #3b4252;
-    background: #2e3440; color: #d8dee9; cursor: pointer;
+    background: #2e3440; color: #a8cbaf; cursor: pointer;
     display: flex; align-items: center; justify-content: center;
     box-shadow: 0 2px 8px rgba(0,0,0,.3); transition: background .2s, color .2s, border-color .2s;
   }

@@ -24,6 +24,7 @@ A Markdown preview extension supporting YAML metadata, Mermaid diagrams, Math re
     - [Admonitions](#admonitions)
     - [Tab Groups](#tab-groups)
     - [Buttons](#buttons)
+    - [Color Settings](#color-settings)
   - [Usage](#usage)
   - [Installation](#installation)
 
@@ -313,6 +314,10 @@ MkDocs `===` tab syntax:
 ```
 
 ![alt text](sources/images/images_md_button.png)
+
+### Color Settings
+
+![](sources/images/image_color_settings.png)
 
 
 ## Usage

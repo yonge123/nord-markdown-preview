@@ -24,7 +24,7 @@
 
 .vscode-body h1, .vscode-body h2, .vscode-body h3,
 .vscode-body h4, .vscode-body h5, .vscode-body h6 {
-    scroll-margin-top: 80px;
+    scroll-margin-top: 80px;    
 }
 .vscode-body h1 {
     border-bottom: none;
@@ -34,7 +34,7 @@
     margin-top: 3em;
     margin-bottom: 1em;
     border-bottom: none;
-    color: #EBCB8B
+    color: #cfb682
 }
 .vscode-body h3 {
     margin-top: 3em;
@@ -117,7 +117,41 @@
     background-color: #2a2b2f;
     border-radius: 6px;
     padding: 5px 14px;
+    position: relative;
 }
+
+/* Copy button on code blocks */
+.nm-copy-btn {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    padding: 4px;
+    width: 26px;
+    height: 26px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    border: 1px solid #4c566a;
+    background: #3b4252;
+    color: #d8dee9;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.15s, background 0.15s;
+    z-index: 10;
+    user-select: none;
+}
+.vscode-body pre:hover .nm-copy-btn { opacity: 1; }
+.nm-copy-btn:hover { background: #4c566a; }
+.nm-copy-btn.nm-copied { color: #a3be8c; border-color: #a3be8c; }
+
+body.nm-light .nm-copy-btn {
+    background: #e4e8f2;
+    border-color: #b0b8cc;
+    color: #2e3440;
+}
+body.nm-light .nm-copy-btn:hover { background: #d0d8ec; }
+body.nm-light .nm-copy-btn.nm-copied { color: #3d7a3d; border-color: #3d7a3d; }
 
 .vscode-body pre code {
     background-color: transparent;  /* prevent double-background */
