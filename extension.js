@@ -2428,6 +2428,8 @@ function openSplitPreview(context) {
       html = html.replace(/<script[\s\S]*?<\/script>/gi, '');
       // Remove video maximize buttons
       html = html.replace(/<div class="video-controls">[\s\S]*?<\/div>/gi, '');
+      // Remove copy buttons from code blocks
+      html = html.replace(/<button class="nm-copy-btn"[\s\S]*?<\/button>/gi, '');
       // Restore YouTube/Vimeo embed URLs from local server proxy
       html = html.replace(/http:\/\/127\.0\.0\.1:\d+\/yt\/([a-zA-Z0-9_-]+)/g,
         'https://www.youtube.com/embed/$1');
@@ -2445,6 +2447,48 @@ function openSplitPreview(context) {
         // Hide toolbar/settings in exported HTML (in case any remnants survived)
         html = html.replace('</head>',
           '<style>.nm-toolbar,.nm-toolbar-hover-zone,.nm-settings-overlay{display:none!important}</style>\n</head>');
+        // Inject copy button script for exported HTML
+        const copyBtnScript = `<script>
+(function(){
+  var svgCopy='<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
+  var svgCheck='<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>';
+  document.querySelectorAll('pre').forEach(function(pre){
+    if(pre.querySelector('.nm-copy-btn')) return;
+    var btn=document.createElement('button');
+    btn.className='nm-copy-btn';
+    btn.title='Copy';
+    btn.innerHTML=svgCopy;
+    btn.addEventListener('click',function(){
+      var code=pre.querySelector('code');
+      var text=code?code.innerText:pre.innerText;
+      navigator.clipboard.writeText(text).then(function(){
+        btn.innerHTML=svgCheck;
+        btn.title='Copied!';
+        btn.classList.add('nm-copied');
+        setTimeout(function(){btn.innerHTML=svgCopy;btn.title='Copy';btn.classList.remove('nm-copied');},2000);
+      });
+    });
+    pre.appendChild(btn);
+  });
+  document.querySelectorAll('.nm-copy-btn').forEach(function(btn){
+    if(btn.dataset.wired) return;
+    btn.dataset.wired='1';
+    btn.addEventListener('click',function(){
+      var pre=btn.closest('pre');
+      if(!pre) return;
+      var code=pre.querySelector('code');
+      var text=code?code.innerText:pre.innerText;
+      navigator.clipboard.writeText(text).then(function(){
+        btn.innerHTML=svgCheck;
+        btn.title='Copied!';
+        btn.classList.add('nm-copied');
+        setTimeout(function(){btn.innerHTML=svgCopy;btn.title='Copy';btn.classList.remove('nm-copied');},2000);
+      });
+    });
+  });
+})();
+</script>`;
+        html = html.replace('</body>', copyBtnScript + '\n</body>');
       }
       // Restore clickable links: external URLs (shared by both formats)
       html = html.replace(/<a\b([^>]*)\bdata-md-url="([^"]*)"([^>]*)>/gi,
@@ -2525,10 +2569,10 @@ function openSplitPreview(context) {
   html, body, body.nm-light { background: #ffffff !important; color: #000000 !important; }
   .fm-block { display: none !important; }
   body.nm-light .vscode-body { max-width: none !important; padding: 10px 0 !important; background: #ffffff !important; color: #000000 !important; }
-  /* Force all text to black — except mermaid (re-rendered with proper theme) */
-  body.nm-light .vscode-body *:not(.mermaid *),
-  body.nm-light .vscode-body *:not(.mermaid *)::before,
-  body.nm-light .vscode-body *:not(.mermaid *)::after { color: #000000 !important; }
+  /* Force all text to black — except mermaid, admonition titles, and md-buttons */
+  body.nm-light .vscode-body *:not(.mermaid *):not(.admonition-title):not(.admonition-title *):not(.md-button):not(.md-button *),
+  body.nm-light .vscode-body *:not(.mermaid *):not(.admonition-title):not(.admonition-title *):not(.md-button):not(.md-button *)::before,
+  body.nm-light .vscode-body *:not(.mermaid *):not(.admonition-title):not(.admonition-title *):not(.md-button):not(.md-button *)::after { color: #000000 !important; }
   body.nm-light .vscode-body a.md-button.md-button--primary { color: #eceff4 !important; }
   body.nm-light .vscode-body a.md-button:not(.md-button--primary) { color: #88c0d0 !important; }
   /* Clickable links — blue + underline */
@@ -2549,8 +2593,49 @@ function openSplitPreview(context) {
   body.nm-light .vscode-body table td { border-color: #ccc !important; }
   body.nm-light .vscode-body mark,
   body.nm-light .vscode-body mark * { background-color: #ff0 !important; }
-  .admonition, details.admonition { border-color: #ccc !important; margin-top: 20px !important; break-inside: avoid !important; }
-  .admonition-title, details.admonition > summary.admonition-title { background: #f0f0f0 !important; border-bottom-color: #ccc !important; break-after: avoid !important; }
+  .admonition, details.admonition { margin-top: 20px !important; break-inside: avoid !important; border-radius: 4px !important; overflow: hidden !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .admonition-title, details.admonition > summary.admonition-title { break-after: avoid !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .admonition-body { background: transparent !important; }
+  /* Per-type admonition borders (markdown.css is removed for PDF, so re-declare here) */
+  .admonition-note                              { border: 2px solid #448aff !important; }
+  .admonition-note .admonition-title            { background: rgba(68,138,255,0.15) !important; color: #448aff !important; border-bottom: 2px solid #448aff !important; }
+  .admonition-abstract,.admonition-summary,.admonition-tldr { border: 2px solid #00b0ff !important; }
+  .admonition-abstract .admonition-title,
+  .admonition-summary  .admonition-title,
+  .admonition-tldr     .admonition-title        { background: rgba(0,176,255,0.15) !important; color: #00b0ff !important; border-bottom: 2px solid #00b0ff !important; }
+  .admonition-info,.admonition-todo             { border: 2px solid #00b8d4 !important; }
+  .admonition-info .admonition-title,
+  .admonition-todo .admonition-title            { background: rgba(0,184,212,0.15) !important; color: #00b8d4 !important; border-bottom: 2px solid #00b8d4 !important; }
+  .admonition-tip,.admonition-hint,.admonition-important { border: 2px solid #00bfa5 !important; }
+  .admonition-tip       .admonition-title,
+  .admonition-hint      .admonition-title,
+  .admonition-important .admonition-title       { background: rgba(0,191,165,0.15) !important; color: #00bfa5 !important; border-bottom: 2px solid #00bfa5 !important; }
+  .admonition-success,.admonition-check,.admonition-done { border: 2px solid #00c853 !important; }
+  .admonition-success .admonition-title,
+  .admonition-check   .admonition-title,
+  .admonition-done    .admonition-title         { background: rgba(0,200,83,0.15) !important; color: #00c853 !important; border-bottom: 2px solid #00c853 !important; }
+  .admonition-question,.admonition-help,.admonition-faq { border: 2px solid #64dd17 !important; }
+  .admonition-question .admonition-title,
+  .admonition-help     .admonition-title,
+  .admonition-faq      .admonition-title        { background: rgba(100,221,23,0.15) !important; color: #64dd17 !important; border-bottom: 2px solid #64dd17 !important; }
+  .admonition-warning,.admonition-caution,.admonition-attention { border: 2px solid #ff9100 !important; }
+  .admonition-warning   .admonition-title,
+  .admonition-caution   .admonition-title,
+  .admonition-attention .admonition-title       { background: rgba(255,145,0,0.15) !important; color: #ff9100 !important; border-bottom: 2px solid #ff9100 !important; }
+  .admonition-failure,.admonition-fail,.admonition-missing { border: 2px solid #ff5252 !important; }
+  .admonition-failure .admonition-title,
+  .admonition-fail    .admonition-title,
+  .admonition-missing .admonition-title         { background: rgba(255,82,82,0.15) !important; color: #ff5252 !important; border-bottom: 2px solid #ff5252 !important; }
+  .admonition-danger,.admonition-error          { border: 2px solid #ff1744 !important; }
+  .admonition-danger .admonition-title,
+  .admonition-error  .admonition-title          { background: rgba(255,23,68,0.15) !important; color: #ff1744 !important; border-bottom: 2px solid #ff1744 !important; }
+  .admonition-bug                               { border: 2px solid #f50057 !important; }
+  .admonition-bug .admonition-title             { background: rgba(245,0,87,0.15) !important; color: #f50057 !important; border-bottom: 2px solid #f50057 !important; }
+  .admonition-example                           { border: 2px solid #7c4dff !important; }
+  .admonition-example .admonition-title         { background: rgba(124,77,255,0.15) !important; color: #7c4dff !important; border-bottom: 2px solid #7c4dff !important; }
+  .admonition-quote,.admonition-cite            { border: 2px solid #9e9e9e !important; }
+  .admonition-quote .admonition-title,
+  .admonition-cite  .admonition-title           { background: rgba(158,158,158,0.15) !important; color: #9e9e9e !important; border-bottom: 2px solid #9e9e9e !important; }
 </style>`;
         html = html.replace('</head>', printStyles + '\n</head>');
 
