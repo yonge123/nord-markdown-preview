@@ -824,7 +824,7 @@ function buildHtml({ body, webview, extUri, filename = '', savedTheme = 'dark', 
     html, body {
       margin: 0; padding: 0;
       background: #1e2128; color: #a8cbaf;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, "Noto Sans CJK KR", "Noto Sans KR", "NanumGothic", sans-serif;
       font-size: 15px; line-height: 1.7; height: 100%;
     }
     body.nm-light, html:has(body.nm-light) { background: #ffffff; color: #2e3440; }
@@ -933,7 +933,7 @@ function buildHtml({ body, webview, extUri, filename = '', savedTheme = 'dark', 
     body.nm-light .nm-export-menu { background: #e8eaf0; border-color: #c8cdd8; box-shadow: 0 4px 16px rgba(0,0,0,.1); }
     body.nm-light .nm-export-menu button { color: #2e3440; }
     body.nm-light .nm-export-menu button:hover { background: rgba(0,0,0,.06); }
-    .vscode-body { max-width: 900px; margin: 0 auto; padding: 28px 40px 80px; }
+    .vscode-body { max-width: 900px; margin: 0 auto; padding: 28px 40px 80px; word-break: keep-all; overflow-wrap: break-word; }
     img         { max-width: 100%; height: auto; }
     iframe      { max-width: 100%; border: none; display: block; border-radius: 6px; }
     video       { max-width: 100%; border-radius: 6px; }
@@ -2077,20 +2077,24 @@ let revealPending  = false;  // selection just changed — suppress syncScroll b
 let revealPendingTimer = null;
 
 function pushUpdate(panel, text, fsPath, restoreScrollY) {
-  panel.webview.postMessage({
-    type:     'update',
-    html:     renderDoc(text, fsPath, panel.webview),
-    filename: path.basename(fsPath),
-    restoreScrollY: restoreScrollY,
-  });
+  try {
+    panel.webview.postMessage({
+      type:     'update',
+      html:     renderDoc(text, fsPath, panel.webview),
+      filename: path.basename(fsPath),
+      restoreScrollY: restoreScrollY,
+    });
+  } catch (_) { /* panel disposed */ }
 }
 
 function pushNavState(panel) {
-  panel.webview.postMessage({
-    type:    'navState',
-    canPrev: navIndex > 0,
-    canNext: navIndex < navHistory.length - 1,
-  });
+  try {
+    panel.webview.postMessage({
+      type:    'navState',
+      canPrev: navIndex > 0,
+      canNext: navIndex < navHistory.length - 1,
+    });
+  } catch (_) { /* panel disposed */ }
 }
 
 // Push a new entry onto the history stack (clears forward history)
@@ -2152,15 +2156,17 @@ function attachEditorListeners(context) {
       revealPending = true;
       clearTimeout(revealPendingTimer);
       revealPendingTimer = setTimeout(() => { revealPending = false; }, 500);
-      previewPanel.webview.postMessage({
-        type:             'revealLine',
-        line:             cursorLine,
-        lineText:         cursorText,
-        anchorRatio,
-        viewportFraction,
-        headingText:      headingMatch[2],
-        headingLevel:     headingMatch[1].length,
-      });
+      try {
+        previewPanel.webview.postMessage({
+          type:             'revealLine',
+          line:             cursorLine,
+          lineText:         cursorText,
+          anchorRatio,
+          viewportFraction,
+          headingText:      headingMatch[2],
+          headingLevel:     headingMatch[1].length,
+        });
+      } catch (_) { /* panel disposed */ }
       return;
     }
 
@@ -2168,7 +2174,9 @@ function attachEditorListeners(context) {
 
     const topLine = e.visibleRanges[0].start.line;
     const ratio   = topLine / (lineCount - 1);
-    previewPanel.webview.postMessage({ type: 'syncScroll', ratio });
+    try {
+      previewPanel.webview.postMessage({ type: 'syncScroll', ratio });
+    } catch (_) { /* panel disposed */ }
   }, null, context.subscriptions);
 
   // Editor cursor click → preview highlight + scroll to active line
@@ -2214,15 +2222,17 @@ function attachEditorListeners(context) {
     revealPending = true;
     clearTimeout(revealPendingTimer);
     revealPendingTimer = setTimeout(() => { revealPending = false; }, 500);
-    previewPanel.webview.postMessage({
-      type:             'revealLine',
-      line,
-      lineText,
-      anchorRatio,
-      viewportFraction,
-      headingText:  headingMatch ? headingMatch[2]         : null,
-      headingLevel: headingMatch ? headingMatch[1].length  : null,
-    });
+    try {
+      previewPanel.webview.postMessage({
+        type:             'revealLine',
+        line,
+        lineText,
+        anchorRatio,
+        viewportFraction,
+        headingText:  headingMatch ? headingMatch[2]         : null,
+        headingLevel: headingMatch ? headingMatch[1].length  : null,
+      });
+    } catch (_) { /* panel disposed */ }
   }, null, context.subscriptions);
 }
 
@@ -2349,6 +2359,7 @@ function openSplitPreview(context) {
       // Load the linked .md file and update the preview without opening the editor
       const uri = vscode.Uri.file(msg.path);
       vscode.workspace.openTextDocument(uri).then(doc => {
+        if (!previewPanel) return;
         navPush(msg.path);
         activeMarkdownPath = msg.path;
         previewPanel.title = 'Preview · ' + path.basename(msg.path);
@@ -2369,6 +2380,7 @@ function openSplitPreview(context) {
       const targetPath = navHistory[navIndex];
       const savedScroll = navScrollMap[targetPath];
       vscode.workspace.openTextDocument(vscode.Uri.file(targetPath)).then(doc => {
+        if (!previewPanel) return;
         activeMarkdownPath = targetPath;
         previewPanel.title = 'Preview · ' + path.basename(targetPath);
         pushUpdate(previewPanel, doc.getText(), targetPath, savedScroll);
