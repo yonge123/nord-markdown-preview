@@ -561,7 +561,7 @@ function rewriteMdButtons(html, docPath) {
 
       let mdPath = '';
       if (href && !/^(?:https?|mailto|vscode):/.test(href)) {
-        try { mdPath = path.resolve(path.dirname(docPath), href); } catch {}
+        try { mdPath = path.resolve(path.dirname(docPath), decodeURIComponent(href.split(/[#?]/)[0])); } catch {}
       }
 
       const extra = ` data-md-btn="1"` +
@@ -2047,7 +2047,8 @@ ${body}
       const themeBtn = document.getElementById('btnThemeToggle');
       if (themeState === 'light') { document.body.classList.add('nm-light'); if (themeBtn) themeBtn.innerHTML = moonSvg; applyScrollbarStyle(true); }
       else if (themeBtn) { themeBtn.innerHTML = sunSvg; }
-      window.scrollTo(0, msg.restoreScrollY !== undefined ? msg.restoreScrollY : prevScroll);
+      const scrollTarget = msg.restoreScrollY !== undefined ? msg.restoreScrollY : prevScroll;
+      requestAnimationFrame(() => window.scrollTo(0, scrollTarget));
     }
   });
 })();

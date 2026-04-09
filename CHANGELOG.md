@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.2.3] - 2026-04-09
+
+### Fixed
+- Fixed md button file contents link
+
+
 ## [1.2.2] - 2026-04-05
 
 ### Fixed
