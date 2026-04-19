@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.2.34] - 2026-04-19
+## [1.2.4] - 2026-04-19
 
 ### Fixed
 - Fixed support for Mermaid graphs and pie charts in offline mode.
