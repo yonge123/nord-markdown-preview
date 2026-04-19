@@ -799,7 +799,8 @@ function getLocalRoots(extUri, docPath) {
 //  HTML builder
 // ─────────────────────────────────────────────────────────────────────────────
 function buildHtml({ body, webview, extUri, filename = '', savedTheme = 'dark', savedColors = null }) {
-  const cssUri = webview.asWebviewUri(vscode.Uri.joinPath(extUri, 'markdown.css'));
+  const cssUri     = webview.asWebviewUri(vscode.Uri.joinPath(extUri, 'markdown.css'));
+  const mermaidUri = webview.asWebviewUri(vscode.Uri.joinPath(extUri, 'sources', 'mermaid.min.js'));
   const csp = [
     `default-src 'none'`,
     `style-src  ${webview.cspSource} 'unsafe-inline' https://cdnjs.cloudflare.com`,
@@ -807,7 +808,7 @@ function buildHtml({ body, webview, extUri, filename = '', savedTheme = 'dark', 
     `frame-src  http://127.0.0.1:* https://player.vimeo.com https://codepen.io https:`,
     `media-src  ${webview.cspSource} https: blob:`,
     `font-src   https://cdnjs.cloudflare.com https: data:`,
-    `script-src 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net`,
+    `script-src ${webview.cspSource} 'unsafe-inline' https://cdnjs.cloudflare.com`,
   ].join('; ');
 
   return `<!DOCTYPE html>
@@ -1311,8 +1312,10 @@ ${body}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/highlight.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.10.0/languages/python.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.9/katex.min.js"></script>
-<script type="module">
-  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+<script src="${mermaidUri}"></script>
+<script>
+(function(){
+  const mermaid = window.mermaid;
   const isDark = () => !document.body.classList.contains('nm-light');
   function initMermaid() {
     const darkVars = {
@@ -1406,6 +1409,7 @@ ${body}
       setTimeout(() => renderMermaid(), 0);
     }
   });
+})();
 </script>
 <script>
 (function() {
@@ -2426,6 +2430,11 @@ function openSplitPreview(context) {
       let cssContent = '';
       try { cssContent = fs.readFileSync(cssPath, 'utf8'); } catch (_) {}
 
+      // Read local mermaid UMD bundle so exports render diagrams offline
+      const mermaidPath = path.join(context.extensionPath, 'sources', 'mermaid.min.js');
+      let mermaidLib = '';
+      try { mermaidLib = fs.readFileSync(mermaidPath, 'utf8'); } catch (_) {}
+
       // Build a clean standalone HTML document from the webview content
       let html = msg.html || '';
       // Remove the toolbar, hover-zone, and settings overlay from the exported HTML.
@@ -2652,27 +2661,31 @@ function openSplitPreview(context) {
 </style>`;
         html = html.replace('</head>', printStyles + '\n</head>');
 
-        // Inject mermaid re-render script with light theme vars for PDF
-        const pdfMermaidScript = `<script type="module">
-import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
-var lightVars = {
-  background:'#ffffff', primaryColor:'#6b91f6', primaryTextColor:'#2e3440',
-  primaryBorderColor:'#3d6ee8', lineColor:'#5281ac', secondaryColor:'#9c5bcc',
-  tertiaryColor:'#2d9e74', edgeLabelBackground:'#f0f4ff', nodeBorder:'#3d6ee8',
-  clusterBkg:'#eef2ff', clusterBorder:'#a0b4f4', titleColor:'#2e3440', edgeColor:'#5281ac',
-  cScale0:'#6b91f6',cScale1:'#9c5bcc',cScale2:'#2d9e74',cScale3:'#e8883c',
-  cScale4:'#e04848',cScale5:'#3cace8',cScale6:'#c8a820',cScale7:'#cc3d6e',
-  cScale8:'#5c9ee8',cScale9:'#5a9e58',cScale10:'#c8622c',cScale11:'#3d8c8c'
-};
-mermaid.initialize({ startOnLoad:false, theme:'base', themeVariables: lightVars });
-var els = document.querySelectorAll('.mermaid');
-for (var el of els) {
-  var src = el.getAttribute('data-mermaid-src') || el.textContent;
-  el.setAttribute('data-mermaid-src', src);
-  el.removeAttribute('data-processed');
-  el.textContent = src;
-}
-if (els.length) await mermaid.run({ nodes: Array.from(els) });
+        // Inject mermaid bundle + re-render script with light theme vars for PDF (offline)
+        const pdfMermaidScript = `<script>${mermaidLib}<\/script>
+<script>
+(async function(){
+  var mermaid = window.mermaid;
+  if (!mermaid) return;
+  var lightVars = {
+    background:'#ffffff', primaryColor:'#6b91f6', primaryTextColor:'#2e3440',
+    primaryBorderColor:'#3d6ee8', lineColor:'#5281ac', secondaryColor:'#9c5bcc',
+    tertiaryColor:'#2d9e74', edgeLabelBackground:'#f0f4ff', nodeBorder:'#3d6ee8',
+    clusterBkg:'#eef2ff', clusterBorder:'#a0b4f4', titleColor:'#2e3440', edgeColor:'#5281ac',
+    cScale0:'#6b91f6',cScale1:'#9c5bcc',cScale2:'#2d9e74',cScale3:'#e8883c',
+    cScale4:'#e04848',cScale5:'#3cace8',cScale6:'#c8a820',cScale7:'#cc3d6e',
+    cScale8:'#5c9ee8',cScale9:'#5a9e58',cScale10:'#c8622c',cScale11:'#3d8c8c'
+  };
+  mermaid.initialize({ startOnLoad:false, theme:'base', themeVariables: lightVars });
+  var els = document.querySelectorAll('.mermaid');
+  for (var el of els) {
+    var src = el.getAttribute('data-mermaid-src') || el.textContent;
+    el.setAttribute('data-mermaid-src', src);
+    el.removeAttribute('data-processed');
+    el.textContent = src;
+  }
+  if (els.length) await mermaid.run({ nodes: Array.from(els) });
+})();
 <\/script>`;
         html = html.replace('</body>', pdfMermaidScript + '\n</body>');
 
@@ -2716,9 +2729,11 @@ if (els.length) await mermaid.run({ nodes: Array.from(els) });
   }
 </style>`;
         const themeToggleHtml = `<button class="nm-theme-toggle" id="nmThemeToggle" title="Toggle light/dark theme"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="5"/><path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg></button>`;
-        const exportScripts = `<script type="module">
-// ── Mermaid rendering with theme support ──
-import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@11/dist/mermaid.esm.min.mjs';
+        const exportScripts = `<script>${mermaidLib}<\/script>
+<script>
+(async function(){
+// ── Mermaid rendering with theme support (offline bundled) ──
+var mermaid = window.mermaid;
 var darkVars = {
   background:'#1e2128', primaryColor:'#5482ec', primaryTextColor:'#eceff4',
   primaryBorderColor:'#7c9ef7', lineColor:'#88c0d0', secondaryColor:'#b48ead',
@@ -2785,6 +2800,7 @@ document.addEventListener('click', function(e){
   var btn = e.target.closest('.tab-btn');
   if (btn) activateTab(btn);
 });
+})();
 <\/script>`;
         html = html.replace('</head>', themeToggleStyle + '\n</head>');
         html = html.replace(/<body>/, '<body>\n' + themeToggleHtml);
