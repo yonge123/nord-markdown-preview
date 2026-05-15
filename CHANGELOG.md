@@ -1,5 +1,11 @@
 # Changelog
 
+
+## [1.2.5] - 2026-05-15
+
+### Fixed
+- Fixed the issue where the entire page repeats in the exported HTML file.
+
 ## [1.2.4] - 2026-04-19
 
 ### Fixed

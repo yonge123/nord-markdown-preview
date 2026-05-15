@@ -2464,8 +2464,11 @@ function openSplitPreview(context) {
         html = html.replace(/<link rel="stylesheet" href="[^"]*markdown\.css[^"]*">/g, '');
       } else {
         // HTML: inline markdown.css for full theme support
+        // NOTE: pass replacement via a function so `$&`, `` $` ``, etc. inside
+        // the CSS content are not interpreted as String.replace() back-references.
+        const inlinedCss = cssContent ? `<style>\n${cssContent}\n</style>` : '';
         html = html.replace(/<link rel="stylesheet" href="[^"]*markdown\.css[^"]*">/g,
-          cssContent ? `<style>\n${cssContent}\n</style>` : '');
+          () => inlinedCss);
         // Hide toolbar/settings in exported HTML (in case any remnants survived)
         html = html.replace('</head>',
           '<style>.nm-toolbar,.nm-toolbar-hover-zone,.nm-settings-overlay{display:none!important}</style>\n</head>');
@@ -2510,7 +2513,7 @@ function openSplitPreview(context) {
   });
 })();
 </script>`;
-        html = html.replace('</body>', copyBtnScript + '\n</body>');
+        html = html.replace('</body>', () => copyBtnScript + '\n</body>');
       }
       // Restore clickable links: external URLs (shared by both formats)
       html = html.replace(/<a\b([^>]*)\bdata-md-url="([^"]*)"([^>]*)>/gi,
@@ -2659,7 +2662,7 @@ function openSplitPreview(context) {
   .admonition-quote .admonition-title,
   .admonition-cite  .admonition-title           { background: rgba(158,158,158,0.15) !important; color: #9e9e9e !important; border-bottom: 2px solid #9e9e9e !important; }
 </style>`;
-        html = html.replace('</head>', printStyles + '\n</head>');
+        html = html.replace('</head>', () => printStyles + '\n</head>');
 
         // Inject mermaid bundle + re-render script with light theme vars for PDF (offline)
         const pdfMermaidScript = `<script>${mermaidLib}<\/script>
@@ -2687,7 +2690,7 @@ function openSplitPreview(context) {
   if (els.length) await mermaid.run({ nodes: Array.from(els) });
 })();
 <\/script>`;
-        html = html.replace('</body>', pdfMermaidScript + '\n</body>');
+        html = html.replace('</body>', () => pdfMermaidScript + '\n</body>');
 
         // Restore local links with absolute file:/// URLs for PDF
         html = restoreLocalLinks(html, null);
@@ -2802,9 +2805,14 @@ document.addEventListener('click', function(e){
 });
 })();
 <\/script>`;
-        html = html.replace('</head>', themeToggleStyle + '\n</head>');
-        html = html.replace(/<body>/, '<body>\n' + themeToggleHtml);
-        html = html.replace('</body>', exportScripts + '\n</body>');
+        html = html.replace('</head>', () => themeToggleStyle + '\n</head>');
+        html = html.replace(/<body>/, () => '<body>\n' + themeToggleHtml);
+        // CRITICAL: must use a function callback here. exportScripts embeds the
+        // mermaid library bundle, whose source contains template-literal text
+        // like ``$`...`` that String.replace() would otherwise treat as the
+        // "match-prefix" back-reference, duplicating the entire HTML document
+        // on every occurrence.
+        html = html.replace('</body>', () => exportScripts + '\n</body>');
 
         const defaultUri = activeMarkdownPath
           ? vscode.Uri.file(path.join(path.dirname(activeMarkdownPath), baseName + '.html'))
